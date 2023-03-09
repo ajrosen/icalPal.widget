@@ -1,27 +1,49 @@
-import {css} from "uebersicht";
-
-export const command = "${GEM_HOME}/bin/icalPal --cf=icalPal.cf";
 export const refreshFrequency = 2 * 60 * 1000; // 2 minutes
+export const command = "${GEM_HOME}/bin/icalPal --cf icalPal.widget/icalPal.cf";
 
 export const className = {
     // Position
-    top: 3,
+    top: 0,
     left: 120,
     width: 450,
     height: 750,
 
-    // Color
-    color: "#FFFFFFFF",		   // Solid white
-    background: "#00000000",	   // Transparent black
-
     // Font
     fontFamily: "Menlo",
-    fontSize: "14px",
+    fontSize: 14,
+
+    // Color
+    color: "white",
 
     // Scrolling
     overflowY: "auto",
     "&::-webkit-scrollbar": { display: "none" }
 };
+
+// Vertical spacing
+const spacing = {
+    header: 4,			// Between day header and first event
+    event: 2,			// Between events
+    days: 4,			// Between last event of one day and the next day header
+};
+
+// Day header
+const dayHeader = {
+    background: "black",
+    color: "white",
+};
+
+const relDayColors = [
+    "gray",
+    "#b00000",			// Yesterday
+    "#00f000",			// Today
+    "#f0f000",			// Tomorrow
+];
+
+// End of user-replaceable parts
+//////////////////////////////////////////////////
+
+const now = new Date();
 
 // The list of events to display
 let events = undefined;
@@ -62,8 +84,11 @@ export function render() {
         let e = events[event];
 
         if (sday != e['sday']) {
-            sday = e['sday'];
+            if (sday != 0) {
+                retval.push(<div style={{height: spacing.days}}/>);
+            }
             retval.push(<DayHeader e={e}/>);
+            sday = e['sday'];
         }
 
         retval.push(<Event e={e}/>);
@@ -79,18 +104,16 @@ const dark = shade(.75);
 const light = shade(.65);
 const fade = shade(.75, 1, 90);
 
-const msecs = 86400000;
-const now = new Date();
-
 
 //////////////////////////////////////////////////
 // Day header
 
 const dayTable = {
+    ...dayHeader,
     border: "2px solid",
     borderRadius: 2,
     fontStyle: "italic",
-    marginBottom: 4,
+    marginBottom: spacing.header,
     padding: 2,
 };
 
@@ -143,8 +166,7 @@ const timeRow = { paddingLeft: pad * 4, };
 const alarmStyle = { bottom: 0, left: pad + 2, position: "absolute", };
 const recurStyle = { bottom: 0, position: "absolute", right: 4, };
 
-// Types of meeting links to look for
-// Chime, Google, GotoWebinar, Parcel, Teams, WebEx, Zoom, POTS
+// Types of meeting links to look for (Chime, Google, Parcel, Teams, WebEx, Zoom, POTS)
 const meetings = [
     { type: "C", regex: /(https?:\/\/chime\.aws\/[^\n <>]*)/ },
     { type: "G", regex: /(https?:\/\/meet\.google\.com\/[^\n <>]*)/ },
@@ -156,7 +178,7 @@ const meetings = [
     { type: "☎", regex: /(tel:.*)/ },
 ];
 
-// Conference colors
+// Conference colors (Chime, Google, Parcel, Teams, WebEx, Zoom, POTS)
 const confCol = {
     "C": "black",
     "G": "red",
@@ -215,7 +237,7 @@ function getUrgency(e) {
     return 3;
 }
 
-// Look for meeting links
+// Look for meting links
 function getLink(e) {
     let s = (e.conference_url_detected)? e.conference_url_detected : e.notes;
     try { s = decodeURIComponent(s); }
@@ -254,23 +276,29 @@ function hm(d) {
 //////////////////////////////////////////////////
 // Format items for output
 
+import {css} from "uebersicht";
+
 function Day({d}) {
     return(<span className={css(date)}>{d}</span>);
 }
 
 function RelDay({d}) {
+    const msecs = 86400000;
+
     let diff = Math.floor((Date.parse(d) - now) / msecs) + 1;
 
     let text = diff + " days " + ((diff > 0)? "from now" : "ago");
-    relDay.color = "gray";
-    
+    let color = 0;
+
     switch (diff) {
-    case -2: text = "day before yesterday"; relDay.color = "#b00000"; break;
-    case -1: text = "yesterday"; relDay.color = "#b00000"; break;
-    case 0: text = "today"; relDay.color = "#00f000"; break;
-    case 1: text = "tomorrow"; relDay.color = "#f0f000"; break;
-    case 2: text = "day after tomorrow"; relDay.color = "#f0f000"; break;
+    case -2: text = "day before yesterday"; color++; break;
+    case -1: text = "yesterday"; color++; break;
+    case 0: text = "today"; color += 2; break;
+    case 1: text = "tomorrow"; color += 3; break;
+    case 2: text = "day after tomorrow"; color += 3; break;
     }
+
+    relDay.color = relDayColors[color];
 
     return(<span className={css(relDay)}>{text}</span>);
 }
@@ -296,9 +324,11 @@ function Occurence({d, o}) {
 }
 
 function Title({t}) {
+    const trimLength = className.width / 10;
+
     return(
         <span className={css(title)}>
-          {t.substr(0, 43).trimEnd() + ((t.length > 43)? "\u2026" : "")}
+          {t.substr(0, trimLength).trimEnd() + ((t.length > trimLength)? "\u2026" : "")}
         </span>
     );
 }
@@ -474,7 +504,7 @@ function Event({e}) {
             <Emoji e={e}/>
           </div>
 
-          <div style={{height: 5}}/>
+          <div style={{height: spacing.event}}/>
         </div>
     );
 }
