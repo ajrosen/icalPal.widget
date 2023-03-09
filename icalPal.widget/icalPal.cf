@@ -1,0 +1,10 @@
+# Required
+--cmd events
+--nrd
+--output json
+
+# Recommended
+--df %a%t%b%t%e%t%Y
+
+# User preferences
+--days 35
