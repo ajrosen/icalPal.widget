@@ -287,7 +287,7 @@ function RelDay({d}) {
 
     let diff = Math.floor((Date.parse(d) - now) / msecs) + 1;
 
-    let text = diff + " days " + ((diff > 0)? "from now" : "ago");
+    let text = Math.abs(diff) + " days " + ((diff > 0)? "from now" : "ago");
     let color = 0;
 
     switch (diff) {
