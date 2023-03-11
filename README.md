@@ -10,7 +10,7 @@ Extract [icalPal.widget.zip](https://github.com/ajrosen/icalPal.widget/blob/6d69
 
 ## Configuration
 
-Standard positioning, font selection, colors, etc., are the top of icalPal.jsx.
+Standard positioning, font selection, colors, etc., are at the top of icalPal.jsx.
 
 icalPal.cf stores the options that are passed to icalPal.  This is the best place to choose which calendars you want to show.  See [icalPal Usage](https://github.com/ajrosen/icalPal/blob/main/README.md#usage) for the available options.
 
@@ -24,7 +24,7 @@ The event colors match the color of the event's calendar, as chosen in the Calen
 
 The repeat icon :repeat: is shown for recurring events.
 
-The alarm icon :alarm_clock: is show for events that have an alert set.
+The alarm icon :alarm_clock: is shown for events that have an alert set.
 
 Events with a striped background indicate that you are *tentative* for the event.  A gradient  means you are *free*, and a solid background means you are *busy*.
 
