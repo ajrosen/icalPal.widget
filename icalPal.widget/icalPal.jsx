@@ -450,6 +450,13 @@ function DayHeader({e}) {
 function TitleRow({e}) {
     if (e['invitation_status'] != 0) { titleRow.color = "white"; }
 
+    // Birthdays
+    if (e['calendar'] == "Birthdays") {
+        let sd = new Date(Date.parse(e['sdate']));
+        let ed = new Date(Date.parse(e['edate']));
+        e['title'] += " (" + (sd.getFullYear() - ed.getFullYear()) + ")";
+    }
+
     // Tooltip
     let tt = `${e['calendar']} (${e['account']})`;
     if (e['location']) { tt += "\n\n" + e['location']; }
