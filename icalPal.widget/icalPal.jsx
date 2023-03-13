@@ -227,8 +227,8 @@ function getUrgency(e) {
     if (e['all_day']) { return 3; }
 
     let n = Math.floor(now / 1000);
-    let sd = e['stime'];
-    let ed = e['etime'];
+    let sd = e['stime'] + (now.getTimezoneOffset() * 60000);
+    let ed = e['etime'] + (now.getTimezoneOffset() * 60000);
 
     if (ed < n) { return 0; }
     if (sd <= n && ed >= n) { return 2; }
@@ -452,9 +452,9 @@ function TitleRow({e}) {
 
     // Birthdays
     if (e['calendar'] == "Birthdays") {
-        let sd = new Date(Date.parse(e['sdate']));
-        let ed = new Date(Date.parse(e['edate']));
-        e['title'] += " (" + (sd.getFullYear() - ed.getFullYear()) + ")";
+	let sd = new Date(Date.parse(e['sdate']));
+	let ed = new Date(Date.parse(e['edate']));
+	e['title'] += " (" + (sd.getFullYear() - ed.getFullYear()) + ")";
     }
 
     // Tooltip
