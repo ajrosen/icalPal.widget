@@ -26,7 +26,7 @@ The repeat icon :repeat: is shown for recurring events.
 
 The alarm icon :alarm_clock: is shown for events that have an alert set.
 
-Events with a striped background indicate that you are *tentative* for the event.  A gradient  means you are *free*, and a solid background means you are *busy*.
+Events with a striped background indicate that you are *tentative* for the event.  A gradient means you are *free*, and a solid background means you are *busy*.
 
 ### Tooltips
 

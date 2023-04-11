@@ -1,9 +1,11 @@
+import {css} from "uebersicht";
+
 export const refreshFrequency = 2 * 60 * 1000; // 2 minutes
 export const command = "${GEM_HOME}/bin/icalPal --cf icalPal.widget/icalPal.cf";
 
 export const className = {
     // Position
-    top: 0,
+    top: 4,
     left: 120,
     width: 450,
     height: 750,
@@ -40,17 +42,22 @@ const relDayColors = [
     "#f0f000",			// Tomorrow
 ];
 
-// End of user-replaceable parts
+// End of user-serviceable parts
 //////////////////////////////////////////////////
 
-const now = new Date();
 
-// The list of events to display
+const now = new Date();
+const tzOffset = now.getTimezoneOffset() * 60;
 let events = undefined;
+let key = 0;
 
 
 //////////////////////////////////////////////////
 // updateState
+
+export function init() {
+    console.clear();
+}
 
 export function updateState(event) {
     events = [];
@@ -58,14 +65,14 @@ export function updateState(event) {
     if (event == undefined) { return(undefined); }
     if (event.output == undefined) { return(undefined); }
 
-    let j = undefined;
-
-    try { j = JSON.parse(event.output); }
-    catch { return(undefined); }
-
-    for (let i in j) { events.push(j[i]); }
-
-    return(true);
+    try {
+        let j = JSON.parse(event.output);
+        for (let i in j) { events.push(j[i]); }
+        return(true);
+    }
+    catch {
+        return(undefined);
+    }
 };
 
 
@@ -85,7 +92,7 @@ export function render() {
 
         if (sday != e['sday']) {
             if (sday != 0) {
-                retval.push(<div style={{height: spacing.days}}/>);
+                retval.push(<div key={key++} style={{height: spacing.days}}/>);
             }
             retval.push(<DayHeader e={e}/>);
             sday = e['sday'];
@@ -98,8 +105,10 @@ export function render() {
 };
 
 
-const pad = 8;
+//////////////////////////////////////////////////
+// Styles
 
+const pad = 8;
 const dark = shade(.75);
 const light = shade(.65);
 const fade = shade(.75, 1, 90);
@@ -108,7 +117,8 @@ const fade = shade(.75, 1, 90);
 //////////////////////////////////////////////////
 // Day header
 
-const dayTable = {
+
+const visibleDayTable = {
     ...dayHeader,
     border: "2px solid",
     borderRadius: 2,
@@ -116,6 +126,12 @@ const dayTable = {
     marginBottom: spacing.header,
     padding: 2,
 };
+
+const hiddenDayTable = {
+    ...visibleDayTable,
+    opacity: .5,
+};
+
 
 const date = { paddingLeft: pad };
 const relDay = { position: "absolute", right: pad };
@@ -166,7 +182,8 @@ const timeRow = { paddingLeft: pad * 4, };
 const alarmStyle = { bottom: 0, left: pad + 2, position: "absolute", };
 const recurStyle = { bottom: 0, position: "absolute", right: 4, };
 
-// Types of meeting links to look for (Chime, Google, Parcel, Teams, WebEx, Zoom, POTS)
+// Types of meeting links to look for
+// Chime, Google, GoTo Webinar, Parcel, Teams, WebEx, Zoom, POTS
 const meetings = [
     { type: "C", regex: /(https?:\/\/chime\.aws\/[^\n <>]*)/ },
     { type: "G", regex: /(https?:\/\/meet\.google\.com\/[^\n <>]*)/ },
@@ -226,9 +243,9 @@ function stripe(c1, c2, w, d = 0) {
 function getUrgency(e) {
     if (e['all_day']) { return 3; }
 
-    let n = Math.floor(now / 1000);
-    let sd = e['stime'] + (now.getTimezoneOffset() * 60000);
-    let ed = e['etime'] + (now.getTimezoneOffset() * 60000);
+    let n = Math.floor(now.valueOf() / 1000);
+    let sd = e['stime'] + tzOffset;
+    let ed = e['etime'] + tzOffset;
 
     if (ed < n) { return 0; }
     if (sd <= n && ed >= n) { return 2; }
@@ -241,7 +258,7 @@ function getUrgency(e) {
 function getLink(e) {
     let s = (e.conference_url_detected)? e.conference_url_detected : e.notes;
     try { s = decodeURIComponent(s); }
-    catch { return(undefined); };
+    catch { }
 
     for (const i in meetings) {
         const l = meetings[i];
@@ -272,14 +289,26 @@ function hm(d) {
     return((h > 0)? (h + ":" + m) : (m + "m"));
 }
 
+function click(e) {
+    let days = document.querySelectorAll('[day="' + e.sday + '"]');
+    if (days.length == 0) { return; }
+
+    let x = document.getElementById(e['sdate']);
+    if (x.vis == undefined) { x.vis = true; }
+    x.vis = !x.vis;
+
+    x.className = (x.vis)? css(visibleDayTable) : css(hiddenDayTable);
+    days.forEach(i => { i.style.display = ((x.vis)? "block" : "none"); });
+
+    return;
+}
+
 
 //////////////////////////////////////////////////
 // Format items for output
 
-import {css} from "uebersicht";
-
 function Day({d}) {
-    return(<span className={css(date)}>{d}</span>);
+    return(<span key={key++} className={css(date)}>{d}</span>);
 }
 
 function RelDay({d}) {
@@ -300,15 +329,15 @@ function RelDay({d}) {
 
     relDay.color = relDayColors[color];
 
-    return(<span className={css(relDay)}>{text}</span>);
+    return(<span key={key++} className={css(relDay)}>{text}</span>);
 }
 
 function Conference({l}) {
-    if (l == undefined) { return(<span/>); }
+    if (l == undefined) { return(""); }
 
     return(
-        <a href={l.url} title={l.url}>
-	  <button className={css(link)} style={{color: confCol[l.type]}}>
+        <a key={key++} href={l.url} title={l.url}>
+	  <button key={key++} className={css(link)} style={{color: confCol[l.type]}}>
 	    {l.type}
 	  </button>
 	</a>
@@ -317,7 +346,7 @@ function Conference({l}) {
 
 function Occurence({d, o}) {
     return(
-        <span className={css(occurence)}>
+        <span key={key++} className={css(occurence)}>
           {(d <= 86400)? "" : String.fromCharCode(o + 0x0030, 0x20e3, 32)}
         </span>
     );
@@ -327,7 +356,7 @@ function Title({t}) {
     const trimLength = className.width / 10;
 
     return(
-        <span className={css(title)}>
+        <span key={key++} className={css(title)}>
           {t.substr(0, trimLength).trimEnd() + ((t.length > trimLength)? "\u2026" : "")}
         </span>
     );
@@ -337,7 +366,7 @@ function Emoji({e}) {
     let cp = undefined;
     let cs = undefined;
 
-    if (e == undefined) { return(<span/>); }
+    if (e == undefined) { return(""); }
 
     // Birthdays
     else if (e['calendar'] == "Birthdays") { cp = 0x1f382; }
@@ -396,7 +425,7 @@ function Emoji({e}) {
 
     if (cs || cp) {
         return(
-            <span className={css(emojiStyle)}>
+            <span key={key++} className={css(emojiStyle)}>
               {cs? cs : String.fromCodePoint(cp)}
             </span>
         );
@@ -412,20 +441,20 @@ function Emoji({e}) {
 }
 
 function Alarm({e}) {
-    if (e['all_day'] || !e['trigger_interval']) { return(<span/>); }
+    if (e['all_day'] || !e['trigger_interval']) { return(""); }
 
     return(
-        <span className={css(alarmStyle)} title={Math.abs(e['trigger_interval'] / 60) + "m"}>
+        <span key={key++} className={css(alarmStyle)} title={Math.abs(e['trigger_interval'] / 60) + "m"}>
           {String.fromCodePoint(0x23f0)}
         </span>
     );
 }
 
 function Recur({r, s}) {
-    if (!r) { return(<span/>); }
+    if (!r) { return(""); }
 
     return(
-        <span className={css(recurStyle)} title={s}>
+        <span key={key++} className={css(recurStyle)} title={s}>
           {String.fromCodePoint(0x1f501)}
         </span>
     );
@@ -436,7 +465,7 @@ function Recur({r, s}) {
 
 function DayHeader({e}) {
     return(
-        <div id={e['sdate']} className={css(dayTable)}>
+        <div key={key++} id={e['sdate']} className={css(visibleDayTable)} onClick={() => click(e)}>
           <Day d={e['sdate']}/>
           <RelDay d={e['sdate']}/>
         </div>
@@ -463,7 +492,7 @@ function TitleRow({e}) {
     if (e['notes']) { tt += "\n\n" + e['notes']; }
 
     return(
-        <div className={css(titleRow)} title={tt}>
+        <div key={key++} className={css(titleRow)} title={tt}>
           <Conference l={getLink(e)}/>
           <Occurence d={e['duration']} o={e['daynum']}/>
           <Title t={e['title']}/>
@@ -472,7 +501,7 @@ function TitleRow({e}) {
 }
 
 function TimeRow({e}) {
-    if (e['all_day']) { return(<span/>); }
+    if (e['all_day']) { return(""); }
 
     // Urgency
     timeRow.color = prioColors[e['urgency']];
@@ -487,7 +516,7 @@ function TimeRow({e}) {
     }
 
     return(
-	<div className={css(timeRow)} title={e['attendees'].join("\n")}>
+	<div key={key++} className={css(timeRow)} title={e['attendees'].join("\n")}>
 	  {startEnd}
 	</div>
     );
@@ -503,7 +532,7 @@ function Event({e}) {
 
     return(
         <div>
-          <div className={css(eventTable)} style={{...eventStyle}}>
+          <div yek={key++} day={e.sday} className={css(eventTable)} style={{...eventStyle}}>
             <TitleRow e={e}/>
             <TimeRow e={e}/>
 
