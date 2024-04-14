@@ -10,15 +10,17 @@ Extract [icalPal.widget.zip](https://github.com/ajrosen/icalPal.widget/blob/f4ab
 
 ## Configuration
 
-Standard positioning, font selection, colors, etc., are at the top of icalPal.jsx.
+icalPal command options, and the path to icalPal, are at the top of icalPal.jsx.  Right below are the standard positioning, font selection, colors, etc., options.
 
-icalPal.cf stores the options that are passed to icalPal.  This is the best place to choose which calendars you want to show.  See [icalPal Usage](https://github.com/ajrosen/icalPal/blob/main/README.md#usage) for the available options.
+See [icalPal Usage](https://github.com/ajrosen/icalPal/blob/main/README.md#usage) for the available options.
 
 ## Usage
 
 There is a hidden scrollbar, allowing you to show as many events as you want without overwhelming your desktop.
 
 The meeting indicators are clickable.  They will open the meeting link in your default browser.
+
+Clicking anywhere on a date header will hide the events of that day.
 
 The event colors match the color of the event's calendar, as chosen in the Calendar app.
 

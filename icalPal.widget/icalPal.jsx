@@ -1,7 +1,14 @@
-import {css} from "uebersicht";
+// Set icalPal command options
+let icalPalOptions = [
+    "--days 35",
+    // "--ea"
+];
 
-export const refreshFrequency = 2 * 60 * 1000; // 2 minutes
-export const command = "${GEM_HOME}/bin/icalPal --cf icalPal.widget/icalPal.cf";
+// Set path to icalPal
+const icalPal = "${GEM_HOME}/bin/icalPal";
+
+// 15 minutes
+export const refreshFrequency = 15 * 60 * 1000;
 
 export const className = {
     // Position
@@ -42,67 +49,20 @@ const relDayColors = [
     "#f0f000",			// Tomorrow
 ];
 
+export const command = icalPal + " " + icalPalOptions.join(" ")
+    + " --cf /dev/null --output json events";
+
+
 // End of user-serviceable parts
 //////////////////////////////////////////////////
 
+import {css} from "uebersicht";
 
-const now = new Date();
-const tzOffset = now.getTimezoneOffset() * 60;
+let now = Math.round(new Date().valueOf() / 1000);
+
 let events = undefined;
-let key = 0;
 
-
-//////////////////////////////////////////////////
-// updateState
-
-export function init() {
-    console.clear();
-}
-
-export function updateState(event) {
-    events = [];
-
-    if (event == undefined) { return(undefined); }
-    if (event.output == undefined) { return(undefined); }
-
-    try {
-        let j = JSON.parse(event.output);
-        for (let i in j) { events.push(j[i]); }
-        return(true);
-    }
-    catch {
-        return(undefined);
-    }
-};
-
-
-//////////////////////////////////////////////////
-// render
-
-export function render() {
-    if (! Array.isArray(events)) { return(<div><i>Loading...</i></div>); }
-    if (events.length == 0) { return(<div>No events</div>); }
-
-    let sday = 0;
-
-    const retval = [];
-
-    for (let event in events) {
-        let e = events[event];
-
-        if (sday != e['sday']) {
-            if (sday != 0) {
-                retval.push(<div key={key++} style={{height: spacing.days}}/>);
-            }
-            retval.push(<DayHeader e={e}/>);
-            sday = e['sday'];
-        }
-
-        retval.push(<Event e={e}/>);
-    };
-
-    return(retval);
-};
+let k = 0;
 
 
 //////////////////////////////////////////////////
@@ -117,7 +77,6 @@ const fade = shade(.75, 1, 90);
 //////////////////////////////////////////////////
 // Day header
 
-
 const visibleDayTable = {
     ...dayHeader,
     border: "2px solid",
@@ -131,7 +90,6 @@ const hiddenDayTable = {
     ...visibleDayTable,
     opacity: .5,
 };
-
 
 const date = { paddingLeft: pad };
 const relDay = { position: "absolute", right: pad };
@@ -157,18 +115,26 @@ const link = {
     cursor: "pointer",
     padding: 0,
     position: "absolute",
+    top: 1,
     width: 24,
 };
 
 const occurence = {
+    border: "solid 1px yellow",
+    borderRadius: 4,
     color: "white",
-    fontSize: 16,
-    paddingLeft: pad * 4,
+    fontSize: "smaller",
+    position: "absolute",
+    right: 4,
+    bottom: 4,
 };
 
 const title = {
     display: "inline-block",
+    height: "18px",
+    paddingTop: "1px",
     position: "relative",
+    verticalAlign: "center",
 };
 
 const emojiStyle = {
@@ -178,9 +144,9 @@ const emojiStyle = {
 };
 
 // Time
-const timeRow = { paddingLeft: pad * 4, };
-const alarmStyle = { bottom: 0, left: pad + 2, position: "absolute", };
-const recurStyle = { bottom: 0, position: "absolute", right: 4, };
+const timeRow = { ...title, paddingLeft: pad * 4, };
+const alarmStyle = { position: "absolute", bottom: 0, left: pad + 2, };
+const recurStyle = { position: "absolute", right: 4, top: -2, };
 
 // Types of meeting links to look for
 // Chime, Google, GoTo Webinar, Parcel, Teams, WebEx, Zoom, POTS
@@ -188,7 +154,7 @@ const meetings = [
     { type: "C", regex: /(https?:\/\/chime\.aws\/[^\n <>]*)/ },
     { type: "G", regex: /(https?:\/\/meet\.google\.com\/[^\n <>]*)/ },
     { type: "GW", regex: /(https?:\/\/global\.gotowebinar\.com\/join\/[^\n <>]*)/ },
-    { type: "P", regex: /(parcel\.app\/[^\n <>]*)/ },
+    { type: "P", regex: /(https?:\/\/parcel\.app\/[^\n <>]*)/ },
     { type: "T", regex: /(https?:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^\n <>]*)/ },
     { type: "W", regex: /(https?:\/\/.*\.webex\.com\/[^\n <>]*)/ },
     { type: "Z", regex: /(https?:\/\/[a-z0-9]{2,20}.zoom.[a-z]{2,3}\/j\/[^\n <>]*)/ },
@@ -243,20 +209,20 @@ function stripe(c1, c2, w, d = 0) {
 function getUrgency(e) {
     if (e['all_day']) { return 3; }
 
-    let n = Math.floor(now.valueOf() / 1000);
-    let sd = e['stime'] + tzOffset;
-    let ed = e['etime'] + tzOffset;
+    let n = now;
+    let sd = e['stime'];
+    let ed = e['etime'];
 
     if (ed < n) { return 0; }
     if (sd <= n && ed >= n) { return 2; }
-    if (sd - n < (e['trigger_interval'] * 1000)) { return 1; }
-
+    if ((sd - n) < (e['trigger_interval'] * 1000)) { return 1; }
+ 
     return 3;
 }
 
 // Look for meting links
 function getLink(e) {
-    let s = (e.conference_url_detected)? e.conference_url_detected : e.notes;
+    let s =  e.conference_url_detected + " " + e.notes;
     try { s = decodeURIComponent(s); }
     catch { }
 
@@ -274,6 +240,7 @@ function getLink(e) {
 }
 
 // JSBC
+const df = Intl.DateTimeFormat(0, { month: "short", weekday: "short", day: "2-digit", year: "numeric" });
 const tf = Intl.DateTimeFormat(0, { hour: "2-digit", minute: "numeric" });
 
 // Epoch + 31 years
@@ -281,12 +248,15 @@ function iCalTime(t) {
     return((t.valueOf() +  978307200) * 1000);
 }
 
-// Format D as H:M or Mm
-function hm(d) {
-    const h = Math.floor(d / 3600);
-    const m = String(Math.floor(((d % 3600) / 60))).padStart(2, '0');
+// Format D as D:HH:MM, H:MM or Mm
+function dhm(t) {
+    const d = Math.floor(t / (3600 * 24));
+    const h = Math.floor((t / 3600) - (d * 24));
+    const m = Math.floor(((t % 3600) / 60));
 
-    return((h > 0)? (h + ":" + m) : (m + "m"));
+    if (d > 0) { return([d, String(h).padStart(2, '0'), String(m).padStart(2, '0')].join(":")); }
+    if (h > 0) { return([h, String(m).padStart(2, '0')].join(":")); }
+    return(m + "m");
 }
 
 function click(e) {
@@ -308,13 +278,13 @@ function click(e) {
 // Format items for output
 
 function Day({d}) {
-    return(<span key={key++} className={css(date)}>{d}</span>);
+    return(<span key={k++} className={css(date)}>{d}</span>);
 }
 
 function RelDay({d}) {
     const msecs = 86400000;
 
-    let diff = Math.floor((Date.parse(d) - now) / msecs) + 1;
+    let diff = Math.floor((Date.parse(d) - (now * 1000)) / msecs) + 1;
 
     let text = Math.abs(diff) + " days " + ((diff > 0)? "from now" : "ago");
     let color = 0;
@@ -329,35 +299,72 @@ function RelDay({d}) {
 
     relDay.color = relDayColors[color];
 
-    return(<span key={key++} className={css(relDay)}>{text}</span>);
+    return(<span key={k++} id={"dayCount" + diff} className={css(relDay)}>{text}</span>);
 }
 
 function Conference({l}) {
     if (l == undefined) { return(""); }
 
     return(
-        <a key={key++} href={l.url} title={l.url}>
-	  <button key={key++} className={css(link)} style={{color: confCol[l.type]}}>
+        <a key={k++} href={l.url} title={l.url}>
+	  <button key={k++} className={css(link)} style={{color: confCol[l.type]}}>
 	    {l.type}
 	  </button>
 	</a>
     );
 }
 
-function Occurence({d, o}) {
+function Occurence({e}) {
+    if (e['duration'] <= 86400) { return(<span style={{paddingLeft: pad * 4}}/>); }
+
     return(
-        <span key={key++} className={css(occurence)}>
-          {(d <= 86400)? "" : String.fromCharCode(o + 0x0030, 0x20e3, 32)}
+        <span>
+          <span style={{paddingLeft: pad * 4}}/>
+          <span key={k++} className={css(occurence)}>&#8201;{e['daynum']}&#8201;</span>
         </span>
     );
 }
 
-function Title({t}) {
-    const trimLength = className.width / 10;
+function Title({e}) {
+    let trim = (className.width / 10) + 1;
+
+    if (e['duration'] > 86400) {
+        trim -= 3 + Math.floor(e['daynum'] / 10);
+    }
+
+    let t = e['title'];
 
     return(
-        <span key={key++} className={css(title)}>
-          {t.substr(0, trimLength).trimEnd() + ((t.length > trimLength)? "\u2026" : "")}
+        <span key={k++} className={css(title)}>
+          {t.substr(0, trim).trimEnd()}
+          {((t.length > trim)? "\u2026" : "")}
+        </span>
+    );
+}
+
+function Alarm({e}) {
+    if (e['all_day'] || !e['trigger_interval']) { return(""); }
+
+    return(
+        <span key={k++} className={css(alarmStyle)} title={Math.abs(e['trigger_interval'] / 60) + "m"}>
+          {String.fromCodePoint(0x23f0)}
+        </span>
+    );
+}
+
+function Recur({e}) {
+    if (! e['has_recurrences']) { return(""); }
+    if (e['calendar'].includes("Holiday")) { return(""); }
+
+    let spec = "S:" + e['specifier']
+        + ":F" + e['frequency']
+        + ":I" + e['interval']
+        + ":C" + e['count']
+        + ":R" + e['rdate'];
+
+    return(
+        <span key={k++} className={css(recurStyle)} title={spec}>
+          {String.fromCodePoint(0x1f501)}
         </span>
     );
 }
@@ -425,49 +432,25 @@ function Emoji({e}) {
 
     if (cs || cp) {
         return(
-            <span key={key++} className={css(emojiStyle)}>
+            <span key={k++} className={css(emojiStyle)}>
               {cs? cs : String.fromCodePoint(cp)}
             </span>
         );
     }
 
-    let spec = e['specifier']
-        + ":F" + e['frequency']
-        + ":I" + e['interval']
-        + ":C" + e['count']
-        + ":R" + e['rdate'];
-
-    return(<Recur r={e['has_recurrences']} s={spec}/>);
+    return("");
 }
 
-function Alarm({e}) {
-    if (e['all_day'] || !e['trigger_interval']) { return(""); }
-
-    return(
-        <span key={key++} className={css(alarmStyle)} title={Math.abs(e['trigger_interval'] / 60) + "m"}>
-          {String.fromCodePoint(0x23f0)}
-        </span>
-    );
-}
-
-function Recur({r, s}) {
-    if (!r) { return(""); }
-
-    return(
-        <span key={key++} className={css(recurStyle)} title={s}>
-          {String.fromCodePoint(0x1f501)}
-        </span>
-    );
-}
 
 //////////////////////////////////////////////////
 // Day header
 
 function DayHeader({e}) {
     return(
-        <div key={key++} id={e['sdate']} className={css(visibleDayTable)} onClick={() => click(e)}>
-          <Day d={e['sdate']}/>
-          <RelDay d={e['sdate']}/>
+        <div key={k++} id={e['sdate']} className={css(visibleDayTable)}
+             onClick={() => click(e)}>
+          <Day d={e['sday']}/>
+          <RelDay d={e['sday']}/>
         </div>
     );
 }
@@ -481,21 +464,21 @@ function TitleRow({e}) {
 
     // Birthdays
     if (e['calendar'] == "Birthdays") {
-	let sd = new Date(Date.parse(e['sdate']));
-	let ed = new Date(Date.parse(e['edate']));
+	let sd = new Date(e['stime'] * 1000);
+	let ed = new Date(e['etime'] * 1000);
 	e['title'] += " (" + (sd.getFullYear() - ed.getFullYear()) + ")";
     }
 
     // Tooltip
     let tt = `${e['calendar']} (${e['account']})`;
-    if (e['location']) { tt += "\n\n" + e['location']; }
-    if (e['notes']) { tt += "\n\n" + e['notes']; }
+    if (e['notes']) { tt += "\n" + "-".repeat(tt.length)  + "\n" + e['notes']; }
+    if (e['attendees'].length > 1) { tt += "\n--\n" + e['attendees'].length + " attendees"; }
 
     return(
-        <div key={key++} className={css(titleRow)} title={tt}>
+        <div key={k++} className={css(titleRow)} title={tt}>
           <Conference l={getLink(e)}/>
-          <Occurence d={e['duration']} o={e['daynum']}/>
-          <Title t={e['title']}/>
+          <Occurence e={e}/>
+          <Title e={e}/>
         </div>
     );
 }
@@ -506,17 +489,15 @@ function TimeRow({e}) {
     // Urgency
     timeRow.color = prioColors[e['urgency']];
 
-    // Time
+    // Duration
     let startEnd = tf.format(iCalTime(e['start_date']));
 
     if (e['duration'] != 0) {
-        startEnd += " - "
-            + tf.format(iCalTime(e['end_date']))
-            + " (" + hm(e['duration']) + ")";
+        startEnd += " - " + tf.format(iCalTime(e['end_date'])) + " (" + dhm(e['duration']) + ")";
     }
 
     return(
-	<div key={key++} className={css(timeRow)} title={e['attendees'].join("\n")}>
+	<div key={k++} className={css(timeRow)} title={e['location']}>
 	  {startEnd}
 	</div>
     );
@@ -532,15 +513,71 @@ function Event({e}) {
 
     return(
         <div>
-          <div yek={key++} day={e.sday} className={css(eventTable)} style={{...eventStyle}}>
+          <div key={k++} day={e.sday} className={css(eventTable)} style={{...eventStyle}}>
             <TitleRow e={e}/>
             <TimeRow e={e}/>
 
             <Alarm e={e}/>
+            <Recur e={e}/>
             <Emoji e={e}/>
           </div>
 
-          <div style={{height: spacing.event}}/>
+          <div day={e.sday} style={{height: spacing.event}}/>
         </div>
     );
+}
+
+///////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// updateState
+
+export function updateState(payload) {
+    events = [];
+
+    if (payload == undefined) { return(undefined); }
+    if (payload.output == undefined) { return(undefined); }
+
+    now = Math.round(new Date().valueOf() / 1000);
+
+    try {
+        let j = JSON.parse(payload.output);
+        for (let i in j) { events.push(j[i]); }
+        events.sort(function(a, b) { return a['stime'] - b['stime']; });
+        return(true);
+    }
+    catch {
+        return(undefined);
+    }
+}
+
+
+//////////////////////////////////////////////////
+// render
+
+export function render() {
+    if (! Array.isArray(events)) { return(<div><i>Loading...</i></div>); }
+    if (events.length == 0) { return(<div>No events</div>); }
+
+    let sday = -1;
+    k = 0;
+
+    const retval = [];
+
+    for (let event in events) {
+        let e = events[event];
+
+        e['sday'] = df.format(new Date(e['stime'] * 1000)).replace(/, /g, " ");
+
+        if (e['sday'] != sday) {
+            if (sday != -1) { retval.push(<div key={k++} style={{height: spacing.days}}/>); }
+            retval.push(<DayHeader key={k++} e={e}/>);
+
+            sday = e['sday'];
+        }
+
+        retval.push(<Event key={k++} e={e}/>);
+    };
+
+    return(retval);
 }
