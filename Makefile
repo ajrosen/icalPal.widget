@@ -1,2 +1,5 @@
-zip:
-	zip -9oru icalPal.widget.zip icalPal.widget
+zip: clean
+	zip -9or icalPal.widget.zip icalPal.widget
+
+clean:
+	@rm -f icalPal.widget.zip

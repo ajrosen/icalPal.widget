@@ -1,14 +1,26 @@
-// Set icalPal command options
+//////////////////////////////////////////////////
+// Set icalPal options
+
+// Configuration file
+const cf = "./icalPal.widget/icalPal.cf";
+
+// Additional command-line options (overrides configuration file)
 let icalPalOptions = [
     "--days 35",
-    // "--ea"
 ];
 
 // Set path to icalPal
-const icalPal = "${GEM_HOME}/bin/icalPal";
+const icalPal = "~/.config/share/gem/ruby/*/bin/icalPal";
 
-// 15 minutes
+
+//////////////////////////////////////////////////
+// Refresh widget every 15 minutes
+
 export const refreshFrequency = 15 * 60 * 1000;
+
+
+//////////////////////////////////////////////////
+// Set position, size, font, and colors
 
 export const className = {
     // Position
@@ -29,19 +41,13 @@ export const className = {
     "&::-webkit-scrollbar": { display: "none" }
 };
 
-// Vertical spacing
-const spacing = {
-    header: 4,			// Between day header and first event
-    event: 2,			// Between events
-    days: 4,			// Between last event of one day and the next day header
-};
-
-// Day header
+// Colors for day header
 const dayHeader = {
     background: "black",
     color: "white",
 };
 
+// Colors for relative days
 const relDayColors = [
     "gray",
     "#b00000",			// Yesterday
@@ -49,20 +55,15 @@ const relDayColors = [
     "#f0f000",			// Tomorrow
 ];
 
-export const command = icalPal + " " + icalPalOptions.join(" ")
-    + " --cf /dev/null --output json events";
 
-
-// End of user-serviceable parts
 //////////////////////////////////////////////////
+// Vertical spacing
 
-import {css} from "uebersicht";
-
-let now = Math.round(new Date().valueOf() / 1000);
-
-let events = undefined;
-
-let k = 0;
+const spacing = {
+    header: 4,			// Between day header and first event
+    event: 2,			// Between events
+    days: 4,			// Between last event of one day and the next day header
+};
 
 
 //////////////////////////////////////////////////
@@ -153,11 +154,11 @@ const recurStyle = { position: "absolute", right: 4, top: -2, };
 const meetings = [
     { type: "C", regex: /(https?:\/\/chime\.aws\/[^\n <>]*)/ },
     { type: "G", regex: /(https?:\/\/meet\.google\.com\/[^\n <>]*)/ },
-    { type: "GW", regex: /(https?:\/\/global\.gotowebinar\.com\/join\/[^\n <>]*)/ },
+    { type: "GW", regex: /(https?:\/\/global\.gotowebinar\.com\/s?join\/[^\n <>]*)/ },
     { type: "P", regex: /(https?:\/\/parcel\.app\/[^\n <>]*)/ },
     { type: "T", regex: /(https?:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^\n <>]*)/ },
     { type: "W", regex: /(https?:\/\/.*\.webex\.com\/[^\n <>]*)/ },
-    { type: "Z", regex: /(https?:\/\/[a-z0-9]{2,20}.zoom.[a-z]{2,3}\/j\/[^\n <>]*)/ },
+    { type: "Z", regex: /(https?:\/\/[a-z0-9]{2,20}.zoom.[a-z]{2,3}\/.\/[^\n <>]*)/ },
     { type: "☎", regex: /(tel:.*)/ },
 ];
 
@@ -182,6 +183,22 @@ const avail = [
 
 // Meeting priorities colors (done, soon, running, normal)
 const prioColors = [ "white", "yellow", "red", "white", ];
+
+// End of user-serviceable parts
+//////////////////////////////////////////////////
+
+
+import {css} from "uebersicht";
+
+export const command = "ICALPAL='' " + icalPal + " " + icalPalOptions.join(" ")
+    + " --cf " + cf + " --nrd --output json events";
+
+let now = Math.round(new Date().valueOf() / 1000);
+const ITIME = 978307200;
+
+let events = undefined;
+
+let k = 0;
 
 // Lighten, darken, fade
 function shade(x, y = x, d = 0) {
@@ -210,12 +227,17 @@ function getUrgency(e) {
     if (e['all_day']) { return 3; }
 
     let n = now;
-    let sd = e['stime'];
-    let ed = e['etime'];
+    let sc = e['sctime'].replace(/ /, "T").replace(/ .*/, "");
+    let ec = e['ectime'].replace(/ /, "T").replace(/ .*/, "");
+
+    let sd = Date.parse(sc) / 1000;
+    let ed = Date.parse(ec) / 1000;
+
+    let ti = e['trigger_interval'];
 
     if (ed < n) { return 0; }
     if (sd <= n && ed >= n) { return 2; }
-    if ((sd - n) < (e['trigger_interval'] * 1000)) { return 1; }
+    if ((sd - n) < -ti) { return 1; }
  
     return 3;
 }
@@ -245,7 +267,11 @@ const tf = Intl.DateTimeFormat(0, { hour: "2-digit", minute: "numeric" });
 
 // Epoch + 31 years
 function iCalTime(t) {
-    return((t.valueOf() +  978307200) * 1000);
+    return((t.valueOf() +  ITIME) * 1000);
+}
+
+function unixTime(t) {
+    return((new Date(t).valueOf() / 1000) - ITIME);
 }
 
 // Format D as D:HH:MM, H:MM or Mm
@@ -277,12 +303,14 @@ function click(e) {
 //////////////////////////////////////////////////
 // Format items for output
 
+// The date
 function Day({d}) {
     return(<span key={k++} className={css(date)}>{d}</span>);
 }
 
+// The date relative to now
 function RelDay({d}) {
-    const msecs = 86400000;
+    const msecs = 86400000;	// Milliseconds in 24 hours
 
     let diff = Math.floor((Date.parse(d) - (now * 1000)) / msecs) + 1;
 
@@ -299,9 +327,17 @@ function RelDay({d}) {
 
     relDay.color = relDayColors[color];
 
+    // Make the day darker the further in the future it is
+    if (color == 0) {
+        const shade = Math.max(92, 255 - (diff * 16));
+        const hex = shade.toString(16);
+        relDay.color = '#' + hex + hex + hex;
+    }
+
     return(<span key={k++} id={"dayCount" + diff} className={css(relDay)}>{text}</span>);
 }
 
+// Conference call button
 function Conference({l}) {
     if (l == undefined) { return(""); }
 
@@ -314,6 +350,7 @@ function Conference({l}) {
     );
 }
 
+// Day of multi-day events
 function Occurence({e}) {
     if (e['duration'] <= 86400) { return(<span style={{paddingLeft: pad * 4}}/>); }
 
@@ -325,6 +362,7 @@ function Occurence({e}) {
     );
 }
 
+// Title of event
 function Title({e}) {
     let trim = (className.width / 10) + 1;
 
@@ -342,6 +380,7 @@ function Title({e}) {
     );
 }
 
+// Alarm icon
 function Alarm({e}) {
     if (e['all_day'] || !e['trigger_interval']) { return(""); }
 
@@ -352,6 +391,8 @@ function Alarm({e}) {
     );
 }
 
+// Icon for recurring events
+// The tooltip is for debugging
 function Recur({e}) {
     if (! e['has_recurrences']) { return(""); }
     if (e['calendar'].includes("Holiday")) { return(""); }
@@ -359,8 +400,11 @@ function Recur({e}) {
     let spec = "S:" + e['specifier']
         + ":F" + e['frequency']
         + ":I" + e['interval']
-        + ":C" + e['count']
-        + ":R" + e['rdate'];
+        + ":C" + e['count'];
+
+    if (e['rdate'] != undefined) {
+        spec +=  ":R" + e['rdate'];
+    }
 
     return(
         <span key={k++} className={css(recurStyle)} title={spec}>
@@ -369,6 +413,7 @@ function Recur({e}) {
     );
 }
 
+// Emojis for birthdays and holidays
 function Emoji({e}) {
     let cp = undefined;
     let cs = undefined;
@@ -449,23 +494,24 @@ function DayHeader({e}) {
     return(
         <div key={k++} id={e['sdate']} className={css(visibleDayTable)}
              onClick={() => click(e)}>
-          <Day d={e['sday']}/>
-          <RelDay d={e['sday']}/>
+          <Day d={e['sdate']}/>
+          <RelDay d={e['sdate']}/>
         </div>
     );
 }
 
 
 //////////////////////////////////////////////////
-// Format an event
+// Event
 
+// Title
 function TitleRow({e}) {
     if (e['invitation_status'] != 0) { titleRow.color = "white"; }
 
     // Birthdays
     if (e['calendar'] == "Birthdays") {
-	let sd = new Date(e['stime'] * 1000);
-	let ed = new Date(e['etime'] * 1000);
+	let sd = new Date(e['sdate']);
+	let ed = new Date(e['edate']);
 	e['title'] += " (" + (sd.getFullYear() - ed.getFullYear()) + ")";
     }
 
@@ -483,6 +529,7 @@ function TitleRow({e}) {
     );
 }
 
+// Time
 function TimeRow({e}) {
     if (e['all_day']) { return(""); }
 
@@ -497,12 +544,13 @@ function TimeRow({e}) {
     }
 
     return(
-	<div key={k++} className={css(timeRow)} title={e['location']}>
+	<div key={k++} className={css(timeRow)} title={e['attendees'].sort().join("\n")}>
 	  {startEnd}
 	</div>
     );
 }
 
+// Div to contain an event
 function Event({e}) {
     let eventStyle = (e['all_day'])? allDay : avail[e['availability']];
 
@@ -529,6 +577,14 @@ function Event({e}) {
 
 ///////////////////////////////////////////////////////////////////////////
 
+
+//////////////////////////////////////////////////
+// init
+
+export function init() {
+}
+
+
 //////////////////////////////////////////////////
 // updateState
 
@@ -546,7 +602,8 @@ export function updateState(payload) {
         events.sort(function(a, b) { return a['stime'] - b['stime']; });
         return(true);
     }
-    catch {
+    catch(e) {
+        console.error([ "US", e ]);
         return(undefined);
     }
 }
@@ -567,7 +624,12 @@ export function render() {
     for (let event in events) {
         let e = events[event];
 
-        e['sday'] = df.format(new Date(e['stime'] * 1000)).replace(/, /g, " ");
+        if (e['calendar'] == "Birthdays") {
+            e['start_date'] = unixTime(e['sdate']);
+            e['end_date'] = unixTime(e['edate']);
+        }
+
+        e['sday'] = df.format(new Date(e['sdate'])).replace(/, /g, " ");
 
         if (e['sday'] != sday) {
             if (sday != -1) { retval.push(<div key={k++} style={{height: spacing.days}}/>); }
