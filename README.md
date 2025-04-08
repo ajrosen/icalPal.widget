@@ -6,7 +6,8 @@ Calendar widget for [Übersicht](https://tracesof.net/uebersicht/) using [icalPa
 
 ## Installation
 
-Extract [icalPal.widget.zip](https://github.com/ajrosen/icalPal.widget/releases/download/1.2.0/icalPal.widget.zip) into your widgets folder.
+* Install the latest version of [icalPal](https://github.com/ajrosen/icalPal/)
+* Extract [icalPal.widget.zip](https://github.com/ajrosen/icalPal.widget/releases/download/2.0.0/icalPal.widget.zip) into your widgets folder.
 
 ## Configuration
 
