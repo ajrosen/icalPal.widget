@@ -1,16 +1,17 @@
 //////////////////////////////////////////////////
 // Set icalPal options
 
-// Configuration file
-const cf = "./icalPal.widget/icalPal.cf";
-
-// Additional command-line options (overrides configuration file)
+// Command-Line options
 let icalPalOptions = [
+    "--ec 'Jewish Holidays','TPS District Events Calendar',Hours,Celtics,Bruins",
     "--days 35",
+    "--df '%a %b %e, %Y'",
 ];
 
 // Set path to icalPal
-const icalPal = "~/.config/share/gem/ruby/*/bin/icalPal";
+const icalPal = "icalPal";
+// const icalPal = "/Users/ajr/.gem/ruby/3.4.0/bin/icalPal";
+// const icalPal = "/Users/ajr/Sync/GitHub/dotfiles/etc/config/share/gem/ruby/3.4.0/bin/icalPal";
 
 
 //////////////////////////////////////////////////
@@ -30,7 +31,7 @@ export const className = {
     height: 750,
 
     // Font
-    fontFamily: "Menlo",
+    fontFamily: "Hack Nerd Font",
     fontSize: 14,
 
     // Color
@@ -81,7 +82,7 @@ const fade = shade(.75, 1, 90);
 const visibleDayTable = {
     ...dayHeader,
     border: "2px solid",
-    borderRadius: 2,
+    borderRadius: 9,
     fontStyle: "italic",
     marginBottom: spacing.header,
     padding: 2,
@@ -112,7 +113,7 @@ const allDay = { background: light, fontStyle: "italic", };
 
 const link = {
     border: "none",
-    borderRadius: 4,
+    borderRadius: 9,
     cursor: "pointer",
     padding: 0,
     position: "absolute",
@@ -122,7 +123,7 @@ const link = {
 
 const occurence = {
     border: "solid 1px yellow",
-    borderRadius: 4,
+    borderRadius: 9,
     color: "white",
     fontSize: "smaller",
     position: "absolute",
@@ -150,28 +151,34 @@ const alarmStyle = { position: "absolute", bottom: 0, left: pad + 2, };
 const recurStyle = { position: "absolute", right: 4, top: -2, };
 
 // Types of meeting links to look for
-// Chime, Google, GoTo Webinar, Parcel, Teams, WebEx, Zoom, POTS
+// Chime, Google, GoTo Webinar, Parcel, SimplePractice, Teams, WebEx, Zoom, POTS, Video, Generic
 const meetings = [
     { type: "C", regex: /(https?:\/\/chime\.aws\/[^\n <>]*)/ },
     { type: "G", regex: /(https?:\/\/meet\.google\.com\/[^\n <>]*)/ },
     { type: "GW", regex: /(https?:\/\/global\.gotowebinar\.com\/s?join\/[^\n <>]*)/ },
     { type: "P", regex: /(https?:\/\/parcel\.app\/[^\n <>]*)/ },
+    { type: "SP", regex: /(https:\/\/video.simplepractice.com\/.*)/ },
     { type: "T", regex: /(https?:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^\n <>]*)/ },
     { type: "W", regex: /(https?:\/\/.*\.webex\.com\/[^\n <>]*)/ },
     { type: "Z", regex: /(https?:\/\/[a-z0-9]{2,20}.zoom.[a-z]{2,3}\/.\/[^\n <>]*)/ },
     { type: "☎", regex: /(tel:.*)/ },
+    { type: "🖥️", regex: /(https?:\/\/.*video.*)/ },
+    { type: "W", regex: /(https?:\/\/.*)/ },
 ];
 
-// Conference colors (Chime, Google, Parcel, Teams, WebEx, Zoom, POTS)
+// Conference colors (Chime, Google, Parcel, Teams, WebEx, Zoom, POTS, Video, Generic)
 const confCol = {
     "C": "black",
     "G": "red",
     "GW": "blue",
     "P": "#8b5742",
+    "SP": "green",
     "T": "green",
     "W": "blue",
     "Z": "magenta",
     "☎": "green",
+    "🖥️": "white",
+    "W": "cornflowerblue",
 };
 
 // Availbility (busy, free, tentative)
@@ -189,16 +196,71 @@ const prioColors = [ "white", "yellow", "red", "white", ];
 
 
 import {css} from "uebersicht";
+import * as G from "../lib/globals.jsx";
 
-export const command = "ICALPAL='' " + icalPal + " " + icalPalOptions.join(" ")
-    + " --cf " + cf + " --nrd --output json events";
+export const command = icalPal + " " + icalPalOptions.join(" ")
+    + " --norc --nrd --output json events";
 
 let now = Math.round(new Date().valueOf() / 1000);
 const ITIME = 978307200;
 
 let events = undefined;
+let emoji = false;
 
 let k = 0;
+
+// Convert from RGB to HSL
+function rgbToHsl(r, g, b) {
+    var max, min, delta;
+    var h, s, l;
+
+    r /= 255;
+    g /= 255;
+    b /= 255;
+
+    max = Math.max(r, g, b);
+    min = Math.min(r, g, b);
+    delta = max - min;
+
+    if (delta == 0) { h = 0; }
+    else if (max == r) { h = 60 * (((g - b) / delta) % 6); }
+    else if (max == g) { h = 60 * (((b - r) / delta) + 2); }
+    else { h = 60 * (((r - g) / delta) + 4); }
+
+    if (h < 0) { h += 360; }
+
+    s = (max == 0)? 0 : delta / max;
+    s *= 100;
+
+    l = max * 100;
+
+    return {h : Math.floor(h), s : Math.floor(s), l : Math.floor(l)};
+}
+
+// Convert from HSL to RGB
+function hslToRgb(h, s, l) {
+    var c, x, m, r, g, b;
+
+    s /= 100;
+    l /= 100;
+
+    c = l * s;
+    x = c * (1 - Math.abs((h / 60) % 2 - 1));
+    m = l - c;
+
+    if (h < 60)       { r = c; g = x; b = 0; }
+    else if (h < 120) { r = x; g = c; b = 0; }
+    else if (h < 180) { r = 0; g = c; b = x; }
+    else if (h < 240) { r = 0; g = x; b = c; }
+    else if (h < 300) { r = x; g = 0; b = c; }
+    else              { r = c; g = 0; b = x; }
+
+    r = Math.floor((r + m) * 255 + .5);
+    g = Math.floor((g + m) * 255 + .5);
+    b = Math.floor((b + m) * 255 + .5);
+
+    return {r : r, g : g, b : b};
+}
 
 // Lighten, darken, fade
 function shade(x, y = x, d = 0) {
@@ -242,9 +304,9 @@ function getUrgency(e) {
     return 3;
 }
 
-// Look for meting links
+// Look for meeting links
 function getLink(e) {
-    let s =  e.conference_url_detected + " " + e.notes;
+    let s =  e.conference_url_detected + " " + e.url + " " + e.notes + " " + e.location;
     try { s = decodeURIComponent(s); }
     catch { }
 
@@ -343,7 +405,7 @@ function Conference({l}) {
 
     return(
         <a key={k++} href={l.url} title={l.url}>
-	  <button key={k++} className={css(link)} style={{color: confCol[l.type]}}>
+	  <button key={k++} className={css(link)} style={{color: confCol[l.type], background: "white"}}>
 	    {l.type}
 	  </button>
 	</a>
@@ -396,14 +458,19 @@ function Alarm({e}) {
 function Recur({e}) {
     if (! e['has_recurrences']) { return(""); }
     if (e['calendar'].includes("Holiday")) { return(""); }
+    if (emoji) { return(""); }
 
-    let spec = "S:" + e['specifier']
-        + ":F" + e['frequency']
-        + ":I" + e['interval']
-        + ":C" + e['count'];
+    let spec = "";
 
-    if (e['rdate'] != undefined) {
-        spec +=  ":R" + e['rdate'];
+    if (G.getLevel() == G.DEBUG) {
+        spec = "S:" + e['specifier']
+            + ":F" + e['frequency']
+            + ":I" + e['interval']
+            + ":C" + e['count'];
+
+        if (e['rdate'] != undefined) {
+            spec +=  ":R " + e['rdate'];
+        }
     }
 
     return(
@@ -417,6 +484,7 @@ function Recur({e}) {
 function Emoji({e}) {
     let cp = undefined;
     let cs = undefined;
+    emoji = false;
 
     if (e == undefined) { return(""); }
 
@@ -473,9 +541,13 @@ function Emoji({e}) {
         else if (e['title'] == "Good Friday") { cp = 0x271d; }
 	else if (e['title'].includes("Easter")) { cp = 0x1f5ff; }
 	else if (e['title'].startsWith("Christmas")) { cp = 0x1f384; }
+
+        // Regional
+        else if (e['title'] == "Day of the Dead") { cp = 0x1f480; }
     }
 
     if (cs || cp) {
+        emoji = true;
         return(
             <span key={k++} className={css(emojiStyle)}>
               {cs? cs : String.fromCodePoint(cp)}
@@ -508,17 +580,26 @@ function DayHeader({e}) {
 function TitleRow({e}) {
     if (e['invitation_status'] != 0) { titleRow.color = "white"; }
 
+    // Lighter
+    let hsl = rgbToHsl(Number("0x" + e['color'].substring(1, 3)),
+                       Number("0x" + e['color'].substring(3, 5)),
+                       Number("0x" + e['color'].substring(5, 7)));
+    let rgb = hslToRgb(hsl.h, Math.min(hsl.s, 40), Math.max(hsl.l, 70));
+    titleRow.color = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+
     // Birthdays
     if (e['calendar'] == "Birthdays") {
 	let sd = new Date(e['sdate']);
-	let ed = new Date(e['edate']);
+	let ed = new Date((e['start_date'] + ITIME) * 1000);
 	e['title'] += " (" + (sd.getFullYear() - ed.getFullYear()) + ")";
     }
 
     // Tooltip
-    let tt = `${e['calendar']} (${e['account']})`;
-    if (e['notes']) { tt += "\n" + "-".repeat(tt.length)  + "\n" + e['notes']; }
-    if (e['attendees'].length > 1) { tt += "\n--\n" + e['attendees'].length + " attendees"; }
+    let tt = e['title'];
+    tt += "\n" + '-'.repeat(40);
+    tt += `\n${e['calendar']} (${e['account']})`;
+    if (e['location']) { tt += "\n" + "-".repeat(80) + "\n" + e['location']; }
+    if (e['notes']) { tt += "\n" + "-".repeat(80)  + "\n" + e['notes']; }
 
     return(
         <div key={k++} className={css(titleRow)} title={tt}>
@@ -543,8 +624,12 @@ function TimeRow({e}) {
         startEnd += " - " + tf.format(iCalTime(e['end_date'])) + " (" + dhm(e['duration']) + ")";
     }
 
+    // Tooltip
+    let tt = undefined;
+    if (e['attendees']) { tt = e['attendees'].sort().join("\n"); }
+
     return(
-	<div key={k++} className={css(timeRow)} title={e['attendees'].sort().join("\n")}>
+	<div key={k++} className={css(timeRow)} title={tt}>
 	  {startEnd}
 	</div>
     );
@@ -566,8 +651,8 @@ function Event({e}) {
             <TimeRow e={e}/>
 
             <Alarm e={e}/>
-            <Recur e={e}/>
             <Emoji e={e}/>
+            <Recur e={e}/>
           </div>
 
           <div day={e.sday} style={{height: spacing.event}}/>
@@ -582,6 +667,10 @@ function Event({e}) {
 // init
 
 export function init() {
+    G.level(G.INFO, "icalPal");
+    G.clear();
+
+    G.info(command);
 }
 
 
@@ -589,6 +678,8 @@ export function init() {
 // updateState
 
 export function updateState(payload) {
+    G.debug([ "US", payload ]);
+
     events = [];
 
     if (payload == undefined) { return(undefined); }
@@ -623,11 +714,6 @@ export function render() {
 
     for (let event in events) {
         let e = events[event];
-
-        if (e['calendar'] == "Birthdays") {
-            e['start_date'] = unixTime(e['sdate']);
-            e['end_date'] = unixTime(e['edate']);
-        }
 
         e['sday'] = df.format(new Date(e['sdate'])).replace(/, /g, " ");
 
